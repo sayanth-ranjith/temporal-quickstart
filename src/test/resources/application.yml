@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: shipment-workflow
+  temporal:
+    test-server:
+      enabled: true
+    workers-auto-discovery:
+      packages:
+        - com.sayanth.ranjith.temporal.shipment_workflow
+    workers:
+      - task-queue: order-shipment-worker
+        name: order-shipment-worker
