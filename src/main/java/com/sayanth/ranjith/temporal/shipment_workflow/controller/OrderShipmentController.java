@@ -26,6 +26,7 @@ public class OrderShipmentController {
                 WorkflowOptions.newBuilder()
                         .setTaskQueue(TemporalConstants.ORDER_SHIPMENT_TASK_QUEUE)
                         .setWorkflowId(workflowId)
+                        .setWorkflowExecutionTimeout(TemporalConstants.ORDER_SHIPMENT_WORKFLOW_TIMEOUT)
                         .build());
         WorkflowClient.start(workflow::shipOrder, order);
         return ResponseEntity.accepted().body(workflowId);

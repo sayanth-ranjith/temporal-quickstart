@@ -8,6 +8,16 @@ refunded).
 
 Both the worker and its task queue are named **`order-shipment-worker`**.
 
+Two `Workflow` API behaviors worth knowing about while testing:
+- After each stage-confirmation signal, the workflow calls `Workflow.sleep(10s)`
+  before running the next activity - so each step below has a visible ~10s
+  delay between sending the signal and the status/log actually advancing.
+- The whole workflow execution is capped at **15 minutes**
+  (`WorkflowOptions#setWorkflowExecutionTimeout`, set when the workflow is
+  started). If it's still running past that, Temporal force-times it out
+  server-side - so don't leave an order sitting unconfirmed for too long
+  while testing.
+
 ## Prerequisites
 
 - Java 17
@@ -60,29 +70,31 @@ curl http://localhost:8080/api/orders/ORD-1001/status
 # "ORDER_PLACED"
 ```
 
-**Team confirms receipt:**
+**Team confirms receipt** — status won't flip to `ORDER_RECEIVED_BY_TEAM`
+until ~10s later (the `Workflow.sleep` after the signal); poll status a
+couple of times to see it:
 
 ```bash
 curl -X POST http://localhost:8080/api/orders/ORD-1001/received-by-team
 curl http://localhost:8080/api/orders/ORD-1001/status
-# "ORDER_RECEIVED_BY_TEAM"
+# "ORDER_PLACED" if you check immediately, "ORDER_RECEIVED_BY_TEAM" ~10s later
 ```
 
-**Team confirms packing:**
+**Team confirms packing** (same ~10s delay before the status updates):
 
 ```bash
 curl -X POST http://localhost:8080/api/orders/ORD-1001/packed-by-team
 curl http://localhost:8080/api/orders/ORD-1001/status
-# "ORDER_PACKED_BY_TEAM"
+# "ORDER_PACKED_BY_TEAM" ~10s after the signal
 ```
 
-**Confirm dispatch** — this also marks the order delivered and opens the
-15 second return window:
+**Confirm dispatch** — after the same ~10s delay this also marks the order
+delivered and opens the 15 second return window:
 
 ```bash
 curl -X POST http://localhost:8080/api/orders/ORD-1001/dispatched
 curl http://localhost:8080/api/orders/ORD-1001/status
-# "ORDER_DISPATCHED" then "ORDER_DELIVERED"
+# "ORDER_DISPATCHED" ~10s after the signal, then "ORDER_DELIVERED" right after
 ```
 
 **Option A — let it complete normally:** do nothing for 15 seconds. The

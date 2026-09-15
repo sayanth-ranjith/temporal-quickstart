@@ -22,6 +22,11 @@ public class OrderShipmentWorkflowImpl implements OrderShipmentWorkflow {
     private static final Logger log = Workflow.getLogger(OrderShipmentWorkflowImpl.class);
     private static final Duration RETURN_WINDOW = Duration.ofSeconds(15);
 
+    // Deliberate pause between a stage-confirmation signal and the activity
+    // that acts on it - gives a visible, demonstrable gap in the event
+    // history/logs instead of the next activity firing instantly.
+    private static final Duration SIGNAL_PROCESSING_DELAY = Duration.ofSeconds(10);
+
     private final OrderShipmentActivities activities = Workflow.newActivityStub(
             OrderShipmentActivities.class,
             ActivityOptions.newBuilder()
@@ -50,14 +55,17 @@ public class OrderShipmentWorkflowImpl implements OrderShipmentWorkflow {
         status = OrderStatus.ORDER_PLACED;
 
         Workflow.await(() -> receivedByTeam);
+        Workflow.sleep(SIGNAL_PROCESSING_DELAY);
         activities.markOrderReceivedByTeam(order.orderId());
         status = OrderStatus.ORDER_RECEIVED_BY_TEAM;
 
         Workflow.await(() -> packedByTeam);
+        Workflow.sleep(SIGNAL_PROCESSING_DELAY);
         activities.markOrderPackedByTeam(order.orderId());
         status = OrderStatus.ORDER_PACKED_BY_TEAM;
 
         Workflow.await(() -> dispatched);
+        Workflow.sleep(SIGNAL_PROCESSING_DELAY);
         activities.markOrderDispatched(order.orderId());
         status = OrderStatus.ORDER_DISPATCHED;
 
